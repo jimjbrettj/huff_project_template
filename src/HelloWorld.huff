@@ -1,0 +1,14 @@
+/*
+    Memory loc      Data
+    0x00            0000000000000000000000000000000000000000000000000000000000000020 // The location of the "Hello, world!" data
+    0x20            000000000000000000000000000000000000000000000000000000000000000d // The length of "Hello, world!" in bytes
+    0x40            48656c6c6f2c20776f726c642100000000000000000000000000000000000000 // Value "Hello, world!"
+*/
+
+
+#define macro MAIN() = takes(0) returns(0) {
+    // store dynamic offset of 0x20 at 0x00
+    0x20                                    // [0x20]
+    0x00                                    // [0x00, 0x20]
+    mstore                                  // []
+}
