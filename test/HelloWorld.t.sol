@@ -5,10 +5,7 @@ import "foundry-huff/HuffDeployer.sol";
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import "@openzeppelin/contracts/utils/Strings.sol";
-
 contract HelloWorldTest is Test {
-     using Strings for uint256;
     /// @dev Address of the SimpleStore contract.
     HelloWorld public helloWorld;
 
@@ -19,20 +16,15 @@ contract HelloWorldTest is Test {
 
     /// @dev Ensure that you can set and get the value.
     function testHelloWorld() public {
-        string memory expectedBytes = "Hello, world!";
-        bytes32 expectedBytes = "Hello, world!";
-       // uint256 expectedBytes = 0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20776f726c642100000000000000000000000000000000000000;
+        string memory expectedString = "Hello, world!";
 
-       // variable = String.toString( uint256( numberInUint64 ));
-        console.log(expectedBytes);
-        uint256 val = helloWorld.helloWorld();
+        console.log(expectedString);
+        string memory val = helloWorld.helloWorld();
         console.log(val);
-        //string strVal = String.toString( uint256( val ));
-       // console.log(strVal);
-        assertEq(val, expectedBytes);
+        assertEq(val, expectedString);
     }
 }
 
 interface HelloWorld {
-    function helloWorld() external view returns(uint256);
+    function helloWorld() external view returns(string memory);
 }
