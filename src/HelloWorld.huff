@@ -1,3 +1,5 @@
+#define function helloWorld() view returns(uint256)
+
 /*
     Memory loc      Data
     0x00            0000000000000000000000000000000000000000000000000000000000000020 // The location of the "Hello, world!" data
@@ -7,8 +9,36 @@
 
 
 #define macro MAIN() = takes(0) returns(0) {
+     // Get the function selector
+    0x00                // Pushed [0] onto the stack
+    calldataload        // Takes [0] as an input and pushes first 32 bytes of calldata onto the stack
+    0xE0                // Pushes [224] onto the stack. This magic number represents 256 bits - 32 bits (28 bytes)
+    shr                 // Shift right. When followed by the shr this will shift out calldata by 28 bytes and place the function selector onto the stack.
+
+     // Jump to the implementation of the ADD_TWO function if the calldata matches the function selector
+    __FUNC_SIG(helloWorld) eq helloWorld jumpi  
+
+    helloWorld:
+        HELLO_WORLD()                      
+}
+
+#define macro HELLO_WORLD() = takes(0) returns(0) {
     // store dynamic offset of 0x20 at 0x00
     0x20                                    // [0x20]
     0x00                                    // [0x00, 0x20]
     mstore                                  // []
+
+    // store string length of 0x0d at 0x20
+    0x0d                                    // [0x0d] 
+    0x20                                    // [0x20, 0x0d]
+    mstore                                  // []
+
+    // store bytes for "Hello, world" at 0x40
+    __RIGHTPAD(0x48656c6c6f2c20776f726c6421) // ["Hello, world!"]
+    0x40                                     // [0x40, "Hello, world!"]
+
+    //return full 96 byte value
+    0x60                                     // [0x60]
+    0x00                                     // [0x00, 0x60]   
+    return                                   // []
 }
