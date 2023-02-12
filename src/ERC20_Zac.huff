@@ -1,0 +1,153 @@
+// Interface
+#define function safeAdd(uint256,uint256) pure returns (uint256)
+
+// //////      Pointers to Storage Locations      //////
+// // Storage pointer that maps to token balances
+// #define macro BALANCE_LOCATION = takes(0) returns(1) {
+//     0x00    // Pushes 0x00 onto the stack
+// }
+
+// // Storage location for contracts owner
+// #define macro OWNER_LOCATION = takes(0) returns(1) {
+//     0x01    // Pushes 0x01 onto the stack
+// }
+
+/*
+    Solidity Panic
+
+    MEMORY LAYOUT WHEN THROWN
+    | sig     || panic code                                                     |
+    0x4e487b71  0000000000000000000000000000000000000000000000000000000000000001
+
+*/
+
+// Errors
+#define error Panic(uint256)
+
+// Constants
+// Solidity Panic Codes
+#define constant ARITHMETIC_OVERFLOW = 0x11
+
+#define macro PANIC() = takes(1) returns(0) {
+    // takes:       // [panic_code]
+    __ERROR(Panic)  // [panic_sig, panic_code]
+    0x00            // [panic_sig_offset, panic_sig, panic_code]
+    mstore          // [panic_code]
+    0x04            // [panic_code_offset, panic_code]
+    mstore          // []
+    0x24            // [revert_size]
+    0x00            // [revert_offset, revert_size]
+    revert          // []
+}
+
+
+//////      SafeMath      //////
+
+/*
+                Notes on MATH_ADD function and how it was optimized
+
+    // Init, need to add then compare b to (a+b)
+    dup2    // Duplicates second stack item [b, a, b]
+    add     // [(a+b), b]
+
+    // Do safe math checks
+
+    // Take 1, check > then =. Expensive, 21 gas
+    dup2    // [b, (a+b), b]
+    dup2    // [(a+b), b, (a+b), b]
+    gt      // [((a+b) > b), (a + b), b]
+
+    dup3    // [b, ((a+b) > b), (a + b), b]
+    dup3    // [(a+b), b, ((a+b) > b), (a + b), b]
+    eq      // [((a+b) = b), ((a+b) > b), (a + b), b]
+
+    or      // [((a+b) >= b), (a + b), b]
+
+    // Take 2, validate that (b > (a+b)) == 0. Key here is that reversing what side b is on in > comp. 1 gas
+    dup1    // [(a+b), (a+b), b]
+    dup3    // [b, (a+b), (a+b), b]
+    gt      // [b > (a+b), (a+b), b]
+
+    iszero  // [(b > (a+b)) == 0, (a+b), b]
+
+    // Take 3, swap b and (a+b) to consume b and save gas later in macro
+    dup1    // [(a+b), (a+b), b]
+    swap2   // swap 1st and 3rd item on stack [b, (a+b), (a+b)]
+    gt      // [b > (a+b), (a+b)]
+
+    iszero  // [(b > (a+b) == 0, (a+b))]
+
+    //
+        When throwing errors, we can test for the error condition, adn if true jump to a point in the program that will through an error
+        OR, we can test for the opposite of the error condition, and if true, jump to a point in the pogram that skips over some code that throws an error, ie
+
+        stack state: ((a+b) >= b) (a+b)
+
+        // Error handling: Option2
+        no_overflow jumpi
+            0x00 0x00 revert    // throw an error
+        no_overflow:
+            // continue with algo
+
+        // Error handling: Option1
+        iszero // stack state: (b > (a+b)) (a+b)
+        throw_error jumpi
+        // continue with algorithm
+    //
+
+    // See if iszero returned 1 or 0, 0 being val is not 0
+    iszero
+    throw_error jumpi
+
+    // Can remove both iszero they cancel out! Leaves us with following macro:
+    // stack state: a b
+    dup2 add
+    // stack state: (a+b) b
+    dup1 swap2 gt
+    // stack state: (a > (a+b)) (a+b)
+    throw_error jumpi
+
+    // SAFE_ADD final form can be seem below
+*/
+
+#define macro SAFE_ADD() = takes(2) returns(1) {
+    0x00 calldataload     // load first 32 bytes onto the stack - number 1
+    0x20 calldataload     // load second 32 bytes onto the stack - number 2
+    // init stack state: [a, b]
+    dup2    // [b, a, b]
+    add     // [result, b]
+
+    // Check if safe
+    dup1    // [result, result, b]
+    swap2   // [b, result, result]
+    gt      // [is_overflow, result]
+
+    iszero  // [is_not_overflow, result]
+    is_not_overflow jumpi // [result]    If not overflow, jump over the panic
+        [ARITHMETIC_OVERFLOW] PANIC() // Put error code on the stack, call panic
+    is_not_overflow: // [result]
+}
+
+// This currently successfully does a safe add, panic seems to work as well!ss
+#define macro MAIN() = takes(0) returns(0) {
+    // Get the function selector
+    0x00                // Pushed [0] onto the stack
+    calldataload        // Takes [0] as an input and pushes first 32 bytes of calldata onto the stack
+    0xE0                // Pushes [224] onto the stack. This magic number represents 256 bits - 32 bits (28 bytes)
+    shr                 // Shift right. When followed by the shr this will shift out calldata by 28 bytes and place the function selector onto the stack.
+
+    // Jump to the implementation of the ADD_TWO function if the calldata matches the function selector
+    __FUNC_SIG(safeAdd) eq safeAdd jumpi
+
+    safeAdd:
+        SAFE_ADD()
+
+
+    //return full 32 byte value
+    0x00
+    mstore
+
+    0x20                                     // [0x20]
+    0x00                                     // [0x00, 0x20]   
+    return  
+}
