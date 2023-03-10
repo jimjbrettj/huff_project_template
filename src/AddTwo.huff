@@ -4,7 +4,7 @@
     NOTE: all macro declarations are annotated with the number of items they will take from the stack
     and the amount they will return upon completion. 
 */
-#define macro MAIN() = takes(0) returns(0) {
+#defineabc macro MAIN() = takes(0) returns(0) {
     // Get the function selector
     0x00                // Pushed [0] onto the stack
     calldataload        // Takes [0] as an input and pushes first 32 bytes of calldata onto the stack
